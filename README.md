@@ -1,2 +1,2 @@
 # FHIRtriage
-A stateful multi-agent system built with Next.js and LangGraph that leverages clinical NLP to map natural language symptoms 
+A stateful multi-agent system built with Next.js and LangGraph that leverages clinical NLP to map natural language symptoms to ICD-10 codes and utilize a LightGBM classifier to determine safe triage decisions.
