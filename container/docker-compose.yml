@@ -1,0 +1,64 @@
+name: fhirtriage-container
+
+services:
+  # 1. High-Performance Relational & Vector Store
+  db:
+    image: ankane/pgvector:v0.5.1  # Postgres pre-bundled with the pgvector extension
+    container_name: fhirtriage-db
+    restart: always
+    environment:
+      POSTGRES_DB: hapi_fhir
+      POSTGRES_USER: fhir_admin
+      POSTGRES_PASSWORD: fhir_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fhir_admin -d hapi_fhir"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Enterprise HAPI FHIR JPA Engine
+  fhir-server:
+    image: hapiproject/hapi:latest
+    container_name: fhirtriage-fhir-server
+    restart: on-failure
+    ports:
+      - "8080:8080"
+    environment:
+      # Activates the standard FHIR R4 data models
+      SPRING_PROFILES_ACTIVE: r4
+      # Database connection orchestration targeting the Postgres container
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/hapi_fhir
+      SPRING_DATASOURCE_USERNAME: fhir_admin
+      SPRING_DATASOURCE_PASSWORD: fhir_secure_password
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
+      HAPI_FHIR_REUSE_CACHED_SEARCH_RESULTS_MILLIS: 60000
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 3. Local Free LLM Inference Engine
+  ollama:
+    image: ollama/ollama:latest
+    container_name: fhirtriage-ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # If utilizing a local NVIDIA GPU, uncomment the deployment block below:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  pgdata:
+  ollama_models:
